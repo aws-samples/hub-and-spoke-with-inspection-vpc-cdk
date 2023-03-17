@@ -71,6 +71,7 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 		TransitGatewayId: transitGWId,
 		SubnetIds:        tGWSubnetIDs,
 		VpcId:            vpc.VpcId(),
+		Options:          ec2.CfnTransitGatewayAttachment_OptionsProperty{ApplianceModeSupport: jsii.String("enable")},
 		Tags: &[]*awscdk.CfnTag{
 			{
 				Key:   jsii.String("routeTable"),

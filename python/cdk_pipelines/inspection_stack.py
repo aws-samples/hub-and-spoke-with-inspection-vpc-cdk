@@ -13,6 +13,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from re import A
 from aws_cdk import (
     Arn,
     ArnComponents,
@@ -79,6 +80,9 @@ class NetworkFirewallStack(Stack):
             transit_gateway_id=transit_gateway_id,
             subnet_ids=tgw_subnets.subnet_ids,
             vpc_id=vpc.vpc_id,
+            options=ec2.CfnTransitGatewayAttachment.OptionsProperty(
+                appliance_mode_support="ENABLED"
+            ),
             tags=[CfnTag(key="routeTable", value="inspection")],
         )
 
@@ -97,9 +101,7 @@ class NetworkFirewallStack(Stack):
 
         subnet_list = [
             nf.CfnFirewall.SubnetMappingProperty(subnet_id=subnet.subnet_id)
-            for subnet in vpc.select_subnets(
-                subnet_group_name="firewall_subnet"
-            ).subnets
+            for subnet in vpc.select_subnets(subnet_group_name="firewall_subnet").subnets
         ]
 
         network_fw = nf.CfnFirewall(
@@ -137,9 +139,7 @@ class NetworkFirewallStack(Stack):
                         log_type="FLOW",
                     ),
                     nf.CfnLoggingConfiguration.LogDestinationConfigProperty(
-                        log_destination={
-                            "logGroup": fw_alert_logs_group.log_group_name
-                        },
+                        log_destination={"logGroup": fw_alert_logs_group.log_group_name},
                         log_destination_type="CloudWatchLogs",
                         log_type="ALERT",
                     ),
