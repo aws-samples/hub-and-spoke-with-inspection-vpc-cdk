@@ -74,8 +74,8 @@ func NetworkFirewallStack(scope constructs.Construct, id string, props *NetworkF
 		TransitGatewayId: props.transitGWId,
 		SubnetIds:        tGWSubnetIDs,
 		VpcId:            vpc.VpcId(),
-		Options: ec2.CfnTransitGatewayAttachment_OptionsProperty{
-			ApplianceModeSupport: jsii.String("ENABLED"),
+		Options: map[string]string{
+			"ApplianceModeSupport": "enable",
 		},
 		Tags: &[]*awscdk.CfnTag{
 			{
