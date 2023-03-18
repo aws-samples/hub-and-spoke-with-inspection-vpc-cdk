@@ -166,13 +166,6 @@ func NetworkFirewallStack(scope constructs.Construct, id string, props *NetworkF
 		SubnetGroupName: jsii.String("Tgw_Subnet"),
 	})
 
-	var tgwSubsIds []*string
-
-	for _, subnet := range *tGWSubnets {
-		subId := subnet.SubnetId()
-		tgwSubsIds = append(tgwSubsIds, subId)
-	}
-
 	var cloudWanSubnetArns []*string
 
 	for _, tgwSub := range *tGWSubnets {
@@ -188,13 +181,6 @@ func NetworkFirewallStack(scope constructs.Construct, id string, props *NetworkF
 	pubSubnets := vpc.SelectSubnetObjects(&ec2.SubnetSelection{
 		SubnetGroupName: jsii.String("Public"),
 	})
-
-	var pubSubsIds []*string
-
-	for _, subnet := range *pubSubnets {
-		subId := subnet.SubnetId()
-		pubSubsIds = append(pubSubsIds, subId)
-	}
 
 	var pubSubnetArns []*string
 	for _, pubSub := range *pubSubnets {

@@ -68,7 +68,7 @@ func InspectionWorkloadStack(scope constructs.Construct, id string, props *Inspe
 	}
 
 	tGWAttachment := ec2.NewCfnTransitGatewayAttachment(stack, jsii.String("TGW_Attachment"), &ec2.CfnTransitGatewayAttachmentProps{
-		TransitGatewayId: props.transitGWId
+		TransitGatewayId: props.transitGWId,
 		SubnetIds:        &privateSubsIds,
 		VpcId:            vpc.VpcId(),
 		Tags: &[]*awscdk.CfnTag{
@@ -88,7 +88,7 @@ func InspectionWorkloadStack(scope constructs.Construct, id string, props *Inspe
 		ec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("Default-route-%s", strings.SplitN(*subnet.Node().Path(), "/", 1))), &ec2.CfnRouteProps{
 			RouteTableId:         subnet.RouteTable().RouteTableId(),
 			DestinationCidrBlock: jsii.String("0.0.0.0/0"),
-			TransitGatewayId:     transitGWId,
+			TransitGatewayId:     props.transitGWId,
 		}).AddDependency(tGWAttachment)
 	}
 
