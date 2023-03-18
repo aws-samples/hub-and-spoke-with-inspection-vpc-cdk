@@ -20,7 +20,7 @@ import (
 	"github.com/aws/jsii-runtime-go"
 )
 
-var hubAccountId = ""
+var hubAccountId = "926562225508"
 var OrganizationCidr = "10.0.0.0/8"
 
 var HubEnv = awscdk.Environment{Account: &hubAccountId, Region: jsii.String("eu-central-1")}

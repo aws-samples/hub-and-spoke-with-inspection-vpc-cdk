@@ -32,9 +32,12 @@ import (
 
 type NetworkFirewallStackProps struct {
 	awscdk.StackProps
+	cidr        string
+	orgCidr     string
+	transitGWId *string
 }
 
-func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, orgCidr string, transitGWId *string, props *NetworkFirewallStackProps) {
+func NetworkFirewallStack(scope constructs.Construct, id string, props *NetworkFirewallStackProps) {
 
 	var sprops awscdk.StackProps
 	if props != nil {
@@ -43,7 +46,7 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
 	vpc := ec2.NewVpc(stack, jsii.String("InspectionVPC"), &ec2.VpcProps{
-		IpAddresses: ec2.IpAddresses_Cidr(&cidr),
+		IpAddresses: ec2.IpAddresses_Cidr(&props.cidr),
 		SubnetConfiguration: &[]*ec2.SubnetConfiguration{
 			{
 				Name:       jsii.String("Tgw_Subnet"),
@@ -68,10 +71,12 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 	}).SubnetIds
 
 	tGWAttachment := ec2.NewCfnTransitGatewayAttachment(stack, jsii.String("TGW_Attachment"), &ec2.CfnTransitGatewayAttachmentProps{
-		TransitGatewayId: transitGWId,
+		TransitGatewayId: props.transitGWId,
 		SubnetIds:        tGWSubnetIDs,
 		VpcId:            vpc.VpcId(),
-		Options:          ec2.CfnTransitGatewayAttachment_OptionsProperty{ApplianceModeSupport: jsii.String("enable")},
+		Options: ec2.CfnTransitGatewayAttachment_OptionsProperty{
+			ApplianceModeSupport: jsii.String("enable"),
+		},
 		Tags: &[]*awscdk.CfnTag{
 			{
 				Key:   jsii.String("routeTable"),
@@ -102,7 +107,7 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 
 	networkFw := nf.NewCfnFirewall(stack, jsii.String("Network_Firewall"), &nf.CfnFirewallProps{
 		FirewallName:      jsii.String("EgressInspectionFirewall"),
-		FirewallPolicyArn: firewallRules.FwPolicyArn(),
+		FirewallPolicyArn: firewallRules.fwPolicyArn,
 		SubnetMappings:    fwSubnetList,
 		VpcId:             vpc.VpcId(),
 	})
@@ -264,7 +269,7 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 				"FirewallArn":     networkFw.AttrFirewallArn(),
 				"SubnetAz":        subnet.AvailabilityZone(),
 				"RouteTableId":    subnet.RouteTable().RouteTableId(),
-				"DestinationCidr": orgCidr,
+				"DestinationCidr": props.orgCidr,
 			},
 		})
 	}
@@ -278,8 +283,8 @@ func NetworkFirewallStack(scope constructs.Construct, id string, cidr string, or
 		// Create CloudFormation custom resource to update firewall routing
 		ec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("OrganisationRoute-%s", strings.SplitN(*subnet.Node().Path(), "/", 1))), &ec2.CfnRouteProps{
 			RouteTableId:         subnet.RouteTable().RouteTableId(),
-			DestinationCidrBlock: &orgCidr,
-			TransitGatewayId:     transitGWId,
+			DestinationCidrBlock: &props.orgCidr,
+			TransitGatewayId:     props.transitGWId,
 		}).AddDependency(tGWAttachment)
 	}
 }
