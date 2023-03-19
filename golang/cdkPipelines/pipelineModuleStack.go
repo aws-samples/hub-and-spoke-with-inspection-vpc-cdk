@@ -35,7 +35,7 @@ func NetworkPipelineStack(scope constructs.Construct, id string, props *Pipeline
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
 	sourceRepo := codecommit.NewRepository(stack, jsii.String("sourceRepo"), &codecommit.RepositoryProps{
-		RepositoryName: jsii.String("network-pipeline-repo-eu-central-1"),
+		RepositoryName: jsii.String("network-pipeline-repo"),
 	})
 
 	pipeline := pipelines.NewCodePipeline(stack, jsii.String("cdkpipeline"), &pipelines.CodePipelineProps{
