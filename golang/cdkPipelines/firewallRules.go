@@ -22,25 +22,16 @@ import (
 	"github.com/aws/jsii-runtime-go"
 )
 
-type firewallRuleStackProps struct {
+type FirewallRuleStackProps struct {
 	awscdk.StackProps
 }
 
-type fwlRulesOutputs struct {
+type FirewallRulesStackOutputs struct {
 	awscdk.Stack
 	fwPolicyArn *string
 }
 
-type FwRulesOutputs interface {
-	awscdk.Stack
-	FwPolicyArn() *string
-}
-
-func (o *fwlRulesOutputs) FwPolicyArn() *string {
-	return o.fwPolicyArn
-}
-
-func NetworkFirewallRules(scope constructs.Construct, id string, props *firewallRuleStackProps) FwRulesOutputs {
+func NetworkFirewallRules(scope constructs.Construct, id string, props *FirewallRuleStackProps) FirewallRulesStackOutputs {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -173,7 +164,6 @@ func NetworkFirewallRules(scope constructs.Construct, id string, props *firewall
 		},
 	})
 
-	//fwPolicy := f
 	fwPolicy := firewall.NewCfnFirewallPolicy(scope, jsii.String("FwPolicy"), &firewall.CfnFirewallPolicyProps{
 		FirewallPolicy: &firewall.CfnFirewallPolicy_FirewallPolicyProperty{
 			StatelessDefaultActions:         jsii.Strings("aws:forward_to_sfe"),
@@ -195,5 +185,10 @@ func NetworkFirewallRules(scope constructs.Construct, id string, props *firewall
 		},
 		FirewallPolicyName: jsii.String("SamplePolicy"),
 	})
-	return &fwlRulesOutputs{stack, fwPolicy.AttrFirewallPolicyArn()}
+
+	var outputs FirewallRulesStackOutputs
+	outputs.Stack = stack
+	outputs.fwPolicyArn = fwPolicy.AttrFirewallPolicyArn()
+
+	return outputs
 }

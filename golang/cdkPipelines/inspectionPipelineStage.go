@@ -34,11 +34,21 @@ func NetworkWorkshopInspectStage(scope constructs.Construct, id string, props *N
 
 	tgw := InspectionTgwStack(stage, "TransitGateway", nil)
 
-	NetworkFirewallStack(stage, "Inspection", "10.100.0.0/16", OrganizationCidr, tgw.TgwId(), nil)
+	NetworkFirewallStack(stage, "Inspection", &NetworkFirewallStackProps{
+		cidr:        "10.100.0.0/16",
+		orgCidr:     OrganizationCidr,
+		transitGWId: tgw.tgWId,
+	})
 
-	InspectionWorkloadStack(stage, "Workload1", "10.110.0.0/16", tgw.TgwId(), nil)
+	InspectionWorkloadStack(stage, "Workload1", &InspectionWorkloadStackProps{
+		cidr:        "10.110.0.0/16",
+		transitGWId: tgw.tgWId,
+	})
 
-	InspectionWorkloadStack(stage, "Workload2", "10.111.0.0/16", tgw.TgwId(), nil)
+	InspectionWorkloadStack(stage, "Workload2", &InspectionWorkloadStackProps{
+		cidr:        "10.111.0.0/16",
+		transitGWId: tgw.tgWId,
+	})
 
 	return stage
 }

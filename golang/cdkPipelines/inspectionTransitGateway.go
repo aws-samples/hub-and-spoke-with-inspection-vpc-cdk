@@ -30,17 +30,12 @@ type InspectionTgwStackProps struct {
 	awscdk.StackProps
 }
 
-type tgwOps struct {
-	constructs.Construct
+type InspectionTgwStackOutputs struct {
+	awscdk.Stack
 	tgWId *string
 }
 
-type TgwOutputs interface {
-	constructs.Construct
-	TgwId() *string
-}
-
-func InspectionTgwStack(scope constructs.Construct, id string, props *InspectionTgwStackProps) TgwOutputs {
+func InspectionTgwStack(scope constructs.Construct, id string, props *InspectionTgwStackProps) InspectionTgwStackOutputs {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -92,10 +87,11 @@ func InspectionTgwStack(scope constructs.Construct, id string, props *Inspection
 
 	CreateEventHandling(stack)
 
-	tgwid := TransitGateway.AttrId()
+	var outputs InspectionTgwStackOutputs
+	outputs.Stack = stack
+	outputs.tgWId = TransitGateway.AttrId()
 
-	return &tgwOps{stack, tgwid}
-
+	return outputs
 }
 
 func CreateEventHandling(scope constructs.Construct) {
@@ -143,8 +139,4 @@ func CreateEventHandling(scope constructs.Construct) {
 
 	EventPatternRule.AddTarget(awseventstargets.NewLambdaFunction(TgwRouteLambda, nil))
 
-}
-
-func (o *tgwOps) TgwId() *string {
-	return o.tgWId
 }
