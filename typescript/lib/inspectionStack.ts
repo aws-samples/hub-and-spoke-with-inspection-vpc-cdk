@@ -16,9 +16,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-import { CustomResource, Duration, RemovalPolicy } from 'aws-cdk-lib';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as nf from 'aws-cdk-lib/aws-networkfirewall';
 import * as cr from 'aws-cdk-lib/custom-resources';
@@ -26,14 +23,14 @@ import { NetworkFirewallRules } from '../lib/firewallRules';
 import { ORGANISATION_CIDR } from '../lib/configurations';
 
 interface NetworkFirewallProps extends cdk.StackProps {
-  cidr: string;
-  orgCidr: string;
-  transitGWId: string;
-  workloadRouteTableID: string;
+  cidr: string,
+  orgCidr: string,
+  transitGWId: string,
+  workloadRouteTableID: string,
 }
 
 export class NetworkFirewallStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: NetworkFirewallProps) {
+  constructor( scope: Construct, id: string, props: NetworkFirewallProps ) {
     super(scope, id, props);
 
     const vpc = new ec2.Vpc(this, 'InspectionVPC', {
@@ -61,20 +58,16 @@ export class NetworkFirewallStack extends cdk.Stack {
       subnetGroupName: 'TGWSubnets',
     });
 
-    const pubSubnets = vpc.selectSubnets({
-      subnetGroupName: 'Public',
-    });
-
     const tGWAttachment = new ec2.CfnTransitGatewayAttachment(
       this,
       'TGWAttachment',
       {
         transitGatewayId: props.transitGWId,
         subnetIds: tGWSubnets.subnetIds,
-        vpcId: vpc.vpcId,
         options: {
-          "ApplianceModeSupport": "enable",
+          ApplianceModeSupport: "enable",
         },
+        vpcId: vpc.vpcId,
         tags: [
           {
             key: 'routeTable',
@@ -99,13 +92,9 @@ export class NetworkFirewallStack extends cdk.Stack {
       subnetGroupName: 'FirewallSubnets',
     });
 
-    let subnetList: nf.CfnFirewall.SubnetMappingProperty[] = [];
-    for (const subnet of fwSubnets.subnets) {
-      const subnetMappingProperty: nf.CfnFirewall.SubnetMappingProperty = {
-        subnetId: subnet.subnetId,
-      };
-      subnetList.push(subnetMappingProperty);
-    }
+    const subnetList: nf.CfnFirewall.SubnetMappingProperty[] = fwSubnets.subnetIds.map(id => {
+      return { subnetId: id};
+    });
 
     const networkFw = new nf.CfnFirewall(this, 'NetworkFirewall', {
       firewallName: 'EgressInspectionFirewall',
@@ -116,12 +105,12 @@ export class NetworkFirewallStack extends cdk.Stack {
 
     const fwFlowLogsGroup = new logs.LogGroup(this, 'FwFlowLogsGroup', {
       logGroupName: 'NetworkFirewallFlowLogs',
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const fwAlertLogGroup = new logs.LogGroup(this, 'FWAlertLogsGroup', {
       logGroupName: 'NetworkFirewallAlertLogs',
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     new nf.CfnLoggingConfiguration(this, 'FirewallLoggingConfg', {
@@ -146,97 +135,59 @@ export class NetworkFirewallStack extends cdk.Stack {
       },
     });
 
-    const routeLambdaRole = new iam.Role(this, 'RouteLambdaRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
-      ],
+    const outputPaths: string[] = [];
+    const azlist = cdk.Stack.of(this).availabilityZones;
+    azlist.forEach ((az) => {
+      outputPaths.push(`FirewallStatus.SyncStates.${az}.Attachment.EndpointId`);
     });
 
-    routeLambdaRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['network-firewall:DescribeFirewall'],
-        resources: [networkFw.attrFirewallArn],
-      })
-    );
-
-    const customRouteLambda = new nodejs.NodejsFunction(this, 'endpoint', {
-      functionName: 'CustomRouteLambda',
-      role: routeLambdaRole,
-      timeout: Duration.seconds(30),
+    const fwDescription = new cr.AwsCustomResource(this, `DescribeFirewallResource`, {
+      onCreate: {
+        service: 'NetworkFirewall',
+        action: 'describeFirewall',
+        parameters: {
+          FirewallArn: networkFw.attrFirewallArn,
+        },
+        region: cdk.Aws.REGION,
+        physicalResourceId: cr.PhysicalResourceId.of('DescribeFirewall'),
+        outputPaths: outputPaths,
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
     });
 
-    const provider = new cr.Provider(this, 'Provider', {
-      onEventHandler: customRouteLambda,
-      logRetention: logs.RetentionDays.ONE_DAY,
+    vpc.selectSubnets({ subnetGroupName: 'TGWSubnets' }).subnets.forEach(subnet => {
+      const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
+
+      new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
+        destinationCidrBlock: '0.0.0.0/0',
+        routeTableId: subnet.routeTable.routeTableId,
+        vpcEndpointId: fwDescription.getResponseField(`FirewallStatus.SyncStates.${subnet.availabilityZone}.Attachment.EndpointId`),
+      }).addDependency(networkFw);
     });
 
-    vpc
-      .selectSubnets({ subnetGroupName: 'Public' })
-      .subnets.forEach((subnet) => {
-        const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
+    vpc.selectSubnets({ subnetGroupName: 'Public' }).subnets.forEach(subnet => {
+      const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
 
-        // Custom resource returns AWS Network Firewall endpoint ID in correct availability zone.
-        const endpoint = new CustomResource(
-          this,
-          `AnfEndpointFor-${subnetName}`,
-          {
-            serviceToken: provider.serviceToken,
-            properties: {
-              FirewallName: networkFw.firewallName,
-              AvailabilityZone: subnet.availabilityZone,
-            },
-          }
-        );
+      // Create default route towards firewall endpoint from Public subnets.
+      new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
+        destinationCidrBlock: ORGANISATION_CIDR,
+        routeTableId: subnet.routeTable.routeTableId,
+        vpcEndpointId: fwDescription.getResponseField(`FirewallStatus.SyncStates.${subnet.availabilityZone}.Attachment.EndpointId`),
+      }).addDependency(networkFw);
+    });
 
-        // Create default route towards firewall endpoint from Public subnets.
-        new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
-          destinationCidrBlock: ORGANISATION_CIDR,
-          routeTableId: subnet.routeTable.routeTableId,
-          vpcEndpointId: endpoint.getAttString('EndpointId'),
-        });
-      });
+    vpc.selectSubnets({ subnetGroupName: 'FirewallSubnets' }).subnets.forEach(subnet => {
+      const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
+      
+      // Create route towards organisation network from firewall subnets.
+      new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
+        destinationCidrBlock: ORGANISATION_CIDR,
+        routeTableId: subnet.routeTable.routeTableId,
+        transitGatewayId: props.transitGWId,
+      }).addDependency(tGWAttachment);
+    })
 
-    vpc
-      .selectSubnets({ subnetGroupName: 'TGWSubnets' })
-      .subnets.forEach((subnet) => {
-        const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
-
-        // Custom resource returns AWS Network Firewall endpoint ID in correct availability zone.
-        const endpoint = new CustomResource(
-          this,
-          `AnfEndpointFor-${subnetName}`,
-          {
-            serviceToken: provider.serviceToken,
-            properties: {
-              FirewallName: networkFw.firewallName,
-              AvailabilityZone: subnet.availabilityZone,
-            },
-          }
-        );
-
-        // Create default route towards firewall endpoint from TGW subnets.
-        new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
-          destinationCidrBlock: '0.0.0.0/0',
-          routeTableId: subnet.routeTable.routeTableId,
-          vpcEndpointId: endpoint.getAttString('EndpointId'),
-        });
-      });
-
-    vpc
-      .selectSubnets({ subnetGroupName: 'FirewallSubnets' })
-      .subnets.forEach((subnet) => {
-        const subnetName = subnet.node.path.split('/').pop(); // E.g. TransitGatewayStack/InspectionVPC/PublicSubnet1
-
-        // Create route towards organisation network from firewall subnets.
-        new ec2.CfnRoute(this, `${subnetName}AnfRoute`, {
-          destinationCidrBlock: ORGANISATION_CIDR,
-          routeTableId: subnet.routeTable.routeTableId,
-          transitGatewayId: props.transitGWId,
-        }).addDependency(tGWAttachment);
-      });
   }
 }

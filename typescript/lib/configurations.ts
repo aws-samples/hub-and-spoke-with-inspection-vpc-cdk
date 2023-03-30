@@ -19,9 +19,9 @@ const HUB_ACCOUNT_ID = '';
 
 // This check is here for sample code to give meaningful error when
 // HUB_ACCOUNT_ID is not set
-if (!HUB_ACCOUNT_ID) {
+if (!(HUB_ACCOUNT_ID)) {
   throw new Error('HUB_ACCOUNT_ID not set in lib/configuration.ts');
-}
+};
 
 export const HUB_ENV: Environment = {
   account: HUB_ACCOUNT_ID,

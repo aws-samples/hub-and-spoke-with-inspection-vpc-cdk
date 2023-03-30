@@ -46,7 +46,7 @@ export class NetworkPipelineStack extends cdk.Stack {
       dockerEnabledForSynth: true,
     });
 
-    const deployFirewallStack = new NetworkWorkshopInspectionStage(
+    const deployFirewallStage = new NetworkWorkshopInspectionStage(
       this,
       'DeployInspection',
       {
@@ -54,6 +54,6 @@ export class NetworkPipelineStack extends cdk.Stack {
       }
     );
 
-    pipeline.addStage(deployFirewallStack);
+    pipeline.addStage(deployFirewallStage);
   }
 }
