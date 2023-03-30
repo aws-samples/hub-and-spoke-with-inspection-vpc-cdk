@@ -73,7 +73,7 @@ export class NetworkFirewallStack extends cdk.Stack {
         subnetIds: tGWSubnets.subnetIds,
         vpcId: vpc.vpcId,
         options: {
-          applianceModeSupport: 'ENABLED',
+          "ApplianceModeSupport": "enable",
         },
         tags: [
           {
@@ -236,7 +236,7 @@ export class NetworkFirewallStack extends cdk.Stack {
           destinationCidrBlock: ORGANISATION_CIDR,
           routeTableId: subnet.routeTable.routeTableId,
           transitGatewayId: props.transitGWId,
-        });
+        }).addDependency(tGWAttachment);
       });
   }
 }

@@ -1,8 +1,8 @@
 {
-  "name": "cdk_dummy",
+  "name": "cdk_pipelines",
   "version": "0.1.0",
   "bin": {
-    "cdk_dummy": "bin/cdk_dummy.js"
+    "cdk_pipelines": "bin/cdk_pipelines.js"
   },
   "scripts": {
     "build": "tsc",
@@ -11,16 +11,22 @@
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@types/aws-lambda": "8.10.113",
     "@types/jest": "^29.4.0",
-    "@types/node": "18.14.2",
-    "jest": "^29.4.3",
+    "@types/node": "18.13.0",
+    "@types/uuid": "^9.0.0",
+    "aws-cdk": "2.66.1",
+    "esbuild": "^0.17.14",
+    "jest": "^29.4.2",
     "ts-jest": "^29.0.5",
-    "aws-cdk": "2.67.0",
     "ts-node": "^10.9.1",
     "typescript": "~4.9.5"
   },
   "dependencies": {
-    "aws-cdk-lib": "2.67.0",
+    "@aws-sdk/client-ec2": "^3.289.0",
+    "@aws-sdk/client-lambda": "^3.289.0",
+    "@aws-sdk/client-network-firewall": "^3.289.0",
+    "aws-cdk-lib": "2.66.1",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21"
   }
